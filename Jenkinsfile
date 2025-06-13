@@ -4,7 +4,7 @@ pipeline {
         go 'go-1.19' // Comes from the jenkins global config
     }
     environment {
-        ENV = "${env.BRANCH_NAME == 'master' ? 'PROD' : 'DEV'}" // Define the ENV based on the branch name
+        ENV = "${env.BRANCH_NAME == 'master' ? 'PROD' : 'DEV'}"
         BRANCH = "${env.BRANCH_NAME}"
     }
 
@@ -17,18 +17,28 @@ pipeline {
                 }
             }
             steps {
-                slackSend channel: '#all-jenkins-udemy-test',
+                slackSend channel: '#all-jenkins-udemy-test', // Adds the target Slack channel name
                           message: "Build for job ${env.JOB_NAME} has started - (<${env.BUILD_URL}|Open>)"
+            }
+        }
+        stage('Scan for secrets') {
+            steps {
+                sh '''
+                    curl -LO https://github.com/zricethezav/gitleaks/releases/download/v8.9.0/gitleaks_8.9.0_linux_x64.tar.gz
+                    tar -xzf gitleaks_8.9.0_linux_x64.tar.gz
+                    ./gitleaks protect -v // Scan for commonly leaked secrets
+                    rm -rf gitleaks*
+                '''
             }
         }
         stage('Build') {
             steps {
-                sh 'bash scripts/build.sh' // Run the build
+                sh 'bash scripts/build.sh'
             }
         }
         stage('Test') {
             steps {
-                sh 'bash scripts/test.sh' // Run the test
+                sh 'bash scripts/test.sh'
             }
         }
         stage('Deploy') {
@@ -43,6 +53,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             slackSend channel: '#all-jenkins-udemy-test',
@@ -51,4 +62,3 @@ pipeline {
         }
     }
 }
-
